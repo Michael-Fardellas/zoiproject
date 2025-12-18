@@ -1,7 +1,7 @@
 import React from 'react'
 import type { Ingredient, Recipe, MenuItem } from '../types'
 import { recipeTotalCost, menuItemCostPerServing, ingredientUnitCost } from '../lib/calc'
-import { money, num, pct } from '../lib/format'
+import { money, num, pct, unitLabel } from '../lib/format'
 
 export function ReportsTab(props: {
   ingredients: Ingredient[]
@@ -17,37 +17,37 @@ export function ReportsTab(props: {
   return (
     <div className="panel">
       <div className="row noPrint" style={{ justifyContent: 'space-between' }}>
-        <h2>Reports</h2>
+        <h2>Αναφορές</h2>
         <div className="row">
-          <span className="muted">Target food cost (eg 0.30)</span>
+          <span className="muted">Στόχος food cost (π.χ. 0.30)</span>
           <input value={target} onChange={(e) => setTarget(e.target.value)} style={{ minWidth: 120 }} />
-          <button className="btn" onClick={() => window.print()}>Print or Save PDF</button>
+          <button className="btn" onClick={() => window.print()}>Εκτύπωση ή αποθήκευση PDF</button>
         </div>
       </div>
 
-      <h2>Ingredients summary</h2>
+      <h2>Σύνοψη υλικών</h2>
       <table>
         <thead>
-          <tr><th>Name</th><th>Unit</th><th>Unit cost</th></tr>
+          <tr><th>Όνομα</th><th>Μονάδα</th><th>Κόστος μονάδας</th></tr>
         </thead>
         <tbody>
           {[...props.ingredients].sort((a,b) => a.name.localeCompare(b.name)).map(i => (
             <tr key={i.id}>
               <td><b>{i.name}</b></td>
-              <td><span className="pill">{i.unit}</span></td>
-              <td>{money(ingredientUnitCost(i))} per {i.unit}</td>
+              <td><span className="pill">{unitLabel(i.unit)}</span></td>
+              <td>{money(ingredientUnitCost(i))} ανά {unitLabel(i.unit)}</td>
             </tr>
           ))}
-          {props.ingredients.length === 0 ? <tr><td colSpan={3} className="muted">No ingredients.</td></tr> : null}
+          {props.ingredients.length === 0 ? <tr><td colSpan={3} className="muted">Δεν υπάρχουν υλικά.</td></tr> : null}
         </tbody>
       </table>
 
       <div className="hr" />
 
-      <h2>Recipes summary</h2>
+      <h2>Σύνοψη συνταγών</h2>
       <table>
         <thead>
-          <tr><th>Name</th><th>Yield</th><th>Total cost</th><th>Unit cost</th></tr>
+          <tr><th>Όνομα</th><th>Απόδοση</th><th>Συνολικό κόστος</th><th>Κόστος μονάδας</th></tr>
         </thead>
         <tbody>
           {[...props.recipes].sort((a,b) => a.name.localeCompare(b.name)).map(r => {
@@ -56,22 +56,22 @@ export function ReportsTab(props: {
             return (
               <tr key={r.id}>
                 <td><b>{r.name}</b></td>
-                <td>{num(r.yieldQty)} {r.yieldUnit}</td>
+                <td>{num(r.yieldQty)} {unitLabel(r.yieldUnit)}</td>
                 <td>{money(totalCost)}</td>
-                <td>{money(unitCost)} per {r.yieldUnit}</td>
+                <td>{money(unitCost)} ανά {unitLabel(r.yieldUnit)}</td>
               </tr>
             )
           })}
-          {props.recipes.length === 0 ? <tr><td colSpan={4} className="muted">No recipes.</td></tr> : null}
+          {props.recipes.length === 0 ? <tr><td colSpan={4} className="muted">Δεν υπάρχουν συνταγές.</td></tr> : null}
         </tbody>
       </table>
 
       <div className="hr" />
 
-      <h2>Menu items summary</h2>
+      <h2>Σύνοψη πιάτων</h2>
       <table>
         <thead>
-          <tr><th>Name</th><th>Price</th><th>Cost per serving</th><th>Food cost %</th><th>Suggested price</th></tr>
+          <tr><th>Όνομα</th><th>Τιμή</th><th>Κόστος ανά μερίδα</th><th>% Κόστος τροφίμων</th><th>Προτεινόμενη τιμή</th></tr>
         </thead>
         <tbody>
           {[...props.menuItems].sort((a,b) => a.name.localeCompare(b.name)).map(m => {
@@ -84,16 +84,16 @@ export function ReportsTab(props: {
                 <td>{money(m.price)}</td>
                 <td>{money(costPerServing)}</td>
                 <td>{pct(fc)}%</td>
-                <td>{money(suggested)} (at {pct(targetFc)}%)</td>
+                <td>{money(suggested)} (με στόχο {pct(targetFc)}%)</td>
               </tr>
             )
           })}
-          {props.menuItems.length === 0 ? <tr><td colSpan={5} className="muted">No menu items.</td></tr> : null}
+          {props.menuItems.length === 0 ? <tr><td colSpan={5} className="muted">Δεν υπάρχουν πιάτα.</td></tr> : null}
         </tbody>
       </table>
 
       <div className="muted" style={{ marginTop: 10 }}>
-        Suggested price is costPerServing / targetFoodCost.
+        Η προτεινόμενη τιμή υπολογίζεται ως: κόστος ανά μερίδα / στόχος food cost.
       </div>
     </div>
   )

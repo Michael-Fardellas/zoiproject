@@ -1,5 +1,6 @@
 import React from 'react'
 import type { Ingredient, Recipe, RecipeLine, Unit, ComponentRef } from '../types'
+import { unitLabel } from '../lib/format'
 import { uid } from '../lib/ids'
 
 const units: Unit[] = ['g', 'ml', 'pc']
@@ -39,18 +40,18 @@ export function LineEditor(props: {
   return (
     <div>
       <div className="row noPrint" style={{ justifyContent: 'space-between' }}>
-        <h2>Components</h2>
-        <button className="btn primary" onClick={addLine}>Add line</button>
+        <h2>Συστατικά</h2>
+        <button className="btn primary" onClick={addLine}>Προσθήκη γραμμής</button>
       </div>
 
       <table>
         <thead>
           <tr>
-            <th>Type</th>
-            <th>Item</th>
-            <th>Qty</th>
-            <th>Unit</th>
-            <th className="noPrint">Actions</th>
+            <th>Τύπος</th>
+            <th>Είδος</th>
+            <th>Ποσότητα</th>
+            <th>Μονάδα</th>
+            <th className="noPrint">Ενέργειες</th>
           </tr>
         </thead>
         <tbody>
@@ -73,8 +74,8 @@ export function LineEditor(props: {
                       }
                     }}
                   >
-                    <option value="ingredient">Ingredient</option>
-                    <option value="recipe" disabled={!props.allowRecipeRefs}>Recipe</option>
+                    <option value="ingredient">Υλικό</option>
+                    <option value="recipe" disabled={!props.allowRecipeRefs}>Συνταγή</option>
                   </select>
                 </td>
 
@@ -86,7 +87,7 @@ export function LineEditor(props: {
                     >
                       {ingredientOptions.length ? ingredientOptions.map(o => (
                         <option key={o.value} value={o.value}>{o.label}</option>
-                      )) : <option value="missing">No ingredients</option>}
+                      )) : <option value="missing">Χωρίς διαθέσιμα υλικά</option>}
                     </select>
                   ) : (
                     <select
@@ -95,7 +96,7 @@ export function LineEditor(props: {
                     >
                       {recipeOptions.length ? recipeOptions.map(o => (
                         <option key={o.value} value={o.value}>{o.label}</option>
-                      )) : <option value="missing">No recipes</option>}
+                      )) : <option value="missing">Χωρίς διαθέσιμες συνταγές</option>}
                     </select>
                   )}
                 </td>
@@ -106,22 +107,22 @@ export function LineEditor(props: {
 
                 <td>
                   <select value={l.unit} onChange={(e) => updateLine(l.id, { unit: e.target.value as Unit })}>
-                    {units.map(u => <option key={u} value={u}>{u}</option>)}
+                    {units.map(u => <option key={u} value={u}>{unitLabel(u)} ({u})</option>)}
                   </select>
                 </td>
 
                 <td className="noPrint">
-                  <button className="btn danger" onClick={() => removeLine(l.id)}>Remove</button>
+                  <button className="btn danger" onClick={() => removeLine(l.id)}>Αφαίρεση</button>
                 </td>
               </tr>
             )
           })}
-          {props.lines.length === 0 ? <tr><td colSpan={5} className="muted">No lines. Add components.</td></tr> : null}
+          {props.lines.length === 0 ? <tr><td colSpan={5} className="muted">Δεν υπάρχουν γραμμές. Πρόσθεσε υλικά ή συνταγές.</td></tr> : null}
         </tbody>
       </table>
 
       <div className="muted" style={{ marginTop: 10 }}>
-        Units must match the ingredient unit or recipe yield unit. No automatic conversions.
+        Οι μονάδες πρέπει να ταιριάζουν με το υλικό ή την απόδοση της συνταγής. Δεν γίνονται αυτόματες μετατροπές.
       </div>
     </div>
   )

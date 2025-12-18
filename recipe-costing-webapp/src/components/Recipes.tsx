@@ -2,7 +2,7 @@ import React from 'react'
 import type { Ingredient, Recipe, Unit } from '../types'
 import { uid } from '../lib/ids'
 import { recipeTotalCost } from '../lib/calc'
-import { money, num } from '../lib/format'
+import { money, num, unitLabel } from '../lib/format'
 import { Modal } from './Modal'
 import { LineEditor } from './LineEditor'
 
@@ -40,22 +40,22 @@ export function RecipesTab(props: {
   return (
     <div className="panel">
       <div className="row noPrint" style={{ justifyContent: 'space-between' }}>
-        <h2>Recipes and sub-recipes</h2>
+        <h2>Συνταγές και υπο-συνταγές</h2>
         <div className="row">
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search recipe" />
-          <button className="btn primary" onClick={() => setCreating(true)}>Add recipe</button>
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Αναζήτηση συνταγής" />
+          <button className="btn primary" onClick={() => setCreating(true)}>Νέα συνταγή</button>
         </div>
       </div>
 
       <table>
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Category</th>
-            <th>Yield</th>
-            <th>Total cost</th>
-            <th>Unit cost</th>
-            <th className="noPrint">Actions</th>
+            <th>Όνομα</th>
+            <th>Κατηγορία</th>
+            <th>Απόδοση</th>
+            <th>Συνολικό κόστος</th>
+            <th>Κόστος μονάδας</th>
+            <th className="noPrint">Ενέργειες</th>
           </tr>
         </thead>
         <tbody>
@@ -65,31 +65,31 @@ export function RecipesTab(props: {
             return (
               <tr key={r.id}>
                 <td><b>{r.name}</b></td>
-                <td><span className="pill">{r.category}</span></td>
-                <td>{num(r.yieldQty)} {r.yieldUnit}</td>
+                <td><span className="pill">{r.category === 'Base' ? 'Βάση' : 'Υπο-συνταγή'}</span></td>
+                <td>{num(r.yieldQty)} {unitLabel(r.yieldUnit)}</td>
                 <td>{money(totalCost)}</td>
-                <td>{money(unitCost)} per {r.yieldUnit}</td>
+                <td>{money(unitCost)} ανά {unitLabel(r.yieldUnit)}</td>
                 <td className="noPrint">
                   <div className="row">
-                    <button className="btn" onClick={() => setViewing(r)}>View</button>
-                    <button className="btn" onClick={() => setEditing(r)}>Edit</button>
+                    <button className="btn" onClick={() => setViewing(r)}>Προβολή</button>
+                    <button className="btn" onClick={() => setEditing(r)}>Επεξεργασία</button>
                     <button className="btn danger" onClick={() => {
-                      const ok = confirm(`Delete recipe "${r.name}"?`)
+                      const ok = confirm(`Διαγραφή της συνταγής "${r.name}";`)
                       if (!ok) return
                       props.setRecipes(props.recipes.filter(x => x.id !== r.id))
-                    }}>Delete</button>
+                    }}>Διαγραφή</button>
                   </div>
                 </td>
               </tr>
             )
           })}
-          {sorted.length === 0 ? <tr><td colSpan={6} className="muted">No recipes.</td></tr> : null}
+          {sorted.length === 0 ? <tr><td colSpan={6} className="muted">Δεν υπάρχουν συνταγές. Ξεκίνα με μία βάση και μετά πρόσθεσε υπο-συνταγές.</td></tr> : null}
         </tbody>
       </table>
 
       {(creating || editing) ? (
         <RecipeModal
-          title={editing ? 'Edit recipe' : 'Add recipe'}
+          title={editing ? 'Επεξεργασία συνταγής' : 'Νέα συνταγή'}
           initial={editing ?? null}
           ingredients={props.ingredients}
           recipes={props.recipes}
@@ -125,8 +125,8 @@ function RecipeModal(props: {
   const [lines, setLines] = React.useState(props.initial?.lines ?? [])
 
   const validate = () => {
-    if (!name.trim()) return 'Name is required'
-    if (parseNum(yieldQty) <= 0) return 'Yield must be > 0'
+    if (!name.trim()) return 'Χρειάζεται όνομα'
+    if (parseNum(yieldQty) <= 0) return 'Η απόδοση πρέπει να είναι πάνω από 0'
     return null
   }
   const err = validate()
@@ -137,7 +137,7 @@ function RecipeModal(props: {
       onClose={props.onClose}
       actions={
         <>
-          <button className="btn" onClick={props.onClose}>Cancel</button>
+          <button className="btn" onClick={props.onClose}>Άκυρο</button>
           <button
             className="btn primary"
             disabled={!!err}
@@ -155,45 +155,45 @@ function RecipeModal(props: {
               })
             }}
           >
-            Save
+            Αποθήκευση
           </button>
         </>
       }
     >
-      {err ? <div className="errorBox">{err}</div> : <div className="okBox">OK</div>}
+      {err ? <div className="errorBox">{err}</div> : <div className="okBox">Έτοιμο για αποθήκευση</div>}
       <div className="hr" />
       <div className="split">
         <div style={{ display: 'grid', gap: 10 }}>
           <label>
-            <div className="muted">Name</div>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="eg Jalapeno mayo" />
+            <div className="muted">Όνομα συνταγής</div>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="π.χ. Μαγιονέζα" />
           </label>
 
           <label>
-            <div className="muted">Category</div>
+            <div className="muted">Κατηγορία</div>
             <select value={category} onChange={(e) => setCategory(e.target.value as Recipe['category'])}>
-              <option value="Base">Base</option>
-              <option value="SubRecipe">SubRecipe</option>
+              <option value="Base">Βάση</option>
+              <option value="SubRecipe">Υπο-συνταγή</option>
             </select>
           </label>
 
           <div className="row">
             <label>
-              <div className="muted">Yield quantity</div>
+              <div className="muted">Απόδοση συνταγής</div>
               <input value={yieldQty} onChange={(e) => setYieldQty(e.target.value)} />
             </label>
 
             <label>
-              <div className="muted">Yield unit</div>
+              <div className="muted">Μονάδα απόδοσης</div>
               <select value={yieldUnit} onChange={(e) => setYieldUnit(e.target.value as Unit)}>
-                {units.map(u => <option key={u} value={u}>{u}</option>)}
+                {units.map(u => <option key={u} value={u}>{unitLabel(u)} ({u})</option>)}
               </select>
             </label>
           </div>
 
           <label>
-            <div className="muted">Notes</div>
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
+            <div className="muted">Σημειώσεις</div>
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Προαιρετικό" />
           </label>
         </div>
 
@@ -221,34 +221,34 @@ function RecipeViewModal(props: {
   const unitCost = props.recipe.yieldQty > 0 ? totalCost / props.recipe.yieldQty : 0
 
   return (
-    <Modal title={`Recipe: ${props.recipe.name}`} onClose={props.onClose}>
-      {errors.length ? <div className="errorBox">{errors.join(' | ')}</div> : <div className="okBox">No calculation errors</div>}
+    <Modal title={`Συνταγή: ${props.recipe.name}`} onClose={props.onClose}>
+      {errors.length ? <div className="errorBox">{errors.join(' | ')}</div> : <div className="okBox">Οι υπολογισμοί έγιναν κανονικά</div>}
       <div className="hr" />
       <div className="row" style={{ justifyContent: 'space-between' }}>
-        <div><div className="muted">Yield</div><div><b>{num(props.recipe.yieldQty)} {props.recipe.yieldUnit}</b></div></div>
-        <div><div className="muted">Total cost</div><div><b>{money(totalCost)}</b></div></div>
-        <div><div className="muted">Unit cost</div><div><b>{money(unitCost)} per {props.recipe.yieldUnit}</b></div></div>
+        <div><div className="muted">Απόδοση</div><div><b>{num(props.recipe.yieldQty)} {unitLabel(props.recipe.yieldUnit)}</b></div></div>
+        <div><div className="muted">Συνολικό κόστος</div><div><b>{money(totalCost)}</b></div></div>
+        <div><div className="muted">Κόστος μονάδας</div><div><b>{money(unitCost)} ανά {unitLabel(props.recipe.yieldUnit)}</b></div></div>
       </div>
       <div className="hr" />
       <table>
         <thead>
           <tr>
-            <th>Component</th>
-            <th>Qty</th>
-            <th>Unit cost</th>
-            <th>Line cost</th>
+            <th>Συστατικό</th>
+            <th>Ποσότητα</th>
+            <th>Κόστος μονάδας</th>
+            <th>Κόστος γραμμής</th>
           </tr>
         </thead>
         <tbody>
           {breakdown.map((b, idx) => (
             <tr key={idx}>
-              <td>{b.label} <span className="pill">{b.kind}</span></td>
-              <td>{num(b.qty)} {b.unit}</td>
-              <td>{Number.isFinite(b.unitCost) ? `${money(b.unitCost)} per ${b.unit}` : 'N/A'}</td>
-              <td>{Number.isFinite(b.lineCost) ? money(b.lineCost) : 'N/A'}</td>
+              <td>{b.label} <span className="pill">{b.kind === 'ingredient' ? 'Υλικό' : 'Συνταγή'}</span></td>
+              <td>{num(b.qty)} {unitLabel(b.unit)}</td>
+              <td>{Number.isFinite(b.unitCost) ? `${money(b.unitCost)} ανά ${unitLabel(b.unit)}` : 'Άγνωστο'}</td>
+              <td>{Number.isFinite(b.lineCost) ? money(b.lineCost) : 'Άγνωστο'}</td>
             </tr>
           ))}
-          {breakdown.length === 0 ? <tr><td colSpan={4} className="muted">No lines.</td></tr> : null}
+          {breakdown.length === 0 ? <tr><td colSpan={4} className="muted">Δεν υπάρχουν γραμμές. Πρόσθεσε υλικά.</td></tr> : null}
         </tbody>
       </table>
     </Modal>
