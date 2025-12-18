@@ -11,7 +11,7 @@ export function Modal(props: {
       <div className="modal" onMouseDown={(e) => e.stopPropagation()}>
         <div className="modalHeader">
           <h3>{props.title}</h3>
-          <button className="btn" onClick={props.onClose}>Close</button>
+          <button className="btn" onClick={props.onClose}>Κλείσιμο</button>
         </div>
         <div className="hr" />
         {props.children}
