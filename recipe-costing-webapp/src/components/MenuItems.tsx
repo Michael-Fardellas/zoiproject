@@ -2,7 +2,7 @@ import React from 'react'
 import type { Ingredient, Recipe, MenuItem } from '../types'
 import { uid } from '../lib/ids'
 import { menuItemCostPerServing } from '../lib/calc'
-import { money, num, pct } from '../lib/format'
+import { money, num, pct, unitLabel } from '../lib/format'
 import { Modal } from './Modal'
 import { LineEditor } from './LineEditor'
 
@@ -39,22 +39,22 @@ export function MenuItemsTab(props: {
   return (
     <div className="panel">
       <div className="row noPrint" style={{ justifyContent: 'space-between' }}>
-        <h2>Menu items</h2>
+        <h2>Πιάτα & μερίδες</h2>
         <div className="row">
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search menu item" />
-          <button className="btn primary" onClick={() => setCreating(true)}>Add menu item</button>
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Αναζήτηση πιάτου" />
+          <button className="btn primary" onClick={() => setCreating(true)}>Νέο πιάτο</button>
         </div>
       </div>
 
       <table>
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Servings</th>
-            <th>Price</th>
-            <th>Cost per serving</th>
-            <th>Food cost %</th>
-            <th className="noPrint">Actions</th>
+            <th>Όνομα</th>
+            <th>Μερίδες</th>
+            <th>Τιμή</th>
+            <th>Κόστος ανά μερίδα</th>
+            <th>% Κόστος τροφίμων</th>
+            <th className="noPrint">Ενέργειες</th>
           </tr>
         </thead>
         <tbody>
@@ -70,25 +70,25 @@ export function MenuItemsTab(props: {
                 <td>{pct(fc)}%</td>
                 <td className="noPrint">
                   <div className="row">
-                    <button className="btn" onClick={() => setViewing(m)}>View</button>
-                    <button className="btn" onClick={() => setEditing(m)}>Edit</button>
+                    <button className="btn" onClick={() => setViewing(m)}>Προβολή</button>
+                    <button className="btn" onClick={() => setEditing(m)}>Επεξεργασία</button>
                     <button className="btn danger" onClick={() => {
-                      const ok = confirm(`Delete menu item "${m.name}"?`)
+                      const ok = confirm(`Διαγραφή του πιάτου "${m.name}";`)
                       if (!ok) return
                       props.setMenuItems(props.menuItems.filter(x => x.id !== m.id))
-                    }}>Delete</button>
+                    }}>Διαγραφή</button>
                   </div>
                 </td>
               </tr>
             )
           })}
-          {sorted.length === 0 ? <tr><td colSpan={6} className="muted">No menu items.</td></tr> : null}
+          {sorted.length === 0 ? <tr><td colSpan={6} className="muted">Δεν υπάρχουν πιάτα. Οργάνωσε πρώτα τα υλικά και τις συνταγές.</td></tr> : null}
         </tbody>
       </table>
 
       {(creating || editing) ? (
         <MenuItemModal
-          title={editing ? 'Edit menu item' : 'Add menu item'}
+          title={editing ? 'Επεξεργασία πιάτου' : 'Νέο πιάτο'}
           initial={editing ?? null}
           ingredients={props.ingredients}
           recipes={props.recipes}
@@ -121,9 +121,9 @@ function MenuItemModal(props: {
   const [lines, setLines] = React.useState(props.initial?.lines ?? [])
 
   const validate = () => {
-    if (!name.trim()) return 'Name is required'
-    if (parseNum(servings) <= 0) return 'Servings must be > 0'
-    if (parseNum(price) < 0) return 'Price must be >= 0'
+    if (!name.trim()) return 'Χρειάζεται όνομα'
+    if (parseNum(servings) <= 0) return 'Οι μερίδες πρέπει να είναι πάνω από 0'
+    if (parseNum(price) < 0) return 'Η τιμή πρέπει να είναι 0 ή μεγαλύτερη'
     return null
   }
   const err = validate()
@@ -134,7 +134,7 @@ function MenuItemModal(props: {
       onClose={props.onClose}
       actions={
         <>
-          <button className="btn" onClick={props.onClose}>Cancel</button>
+          <button className="btn" onClick={props.onClose}>Άκυρο</button>
           <button
             className="btn primary"
             disabled={!!err}
@@ -151,39 +151,39 @@ function MenuItemModal(props: {
               })
             }}
           >
-            Save
+            Αποθήκευση
           </button>
         </>
       }
     >
-      {err ? <div className="errorBox">{err}</div> : <div className="okBox">OK</div>}
+      {err ? <div className="errorBox">{err}</div> : <div className="okBox">Έτοιμο για αποθήκευση</div>}
       <div className="hr" />
       <div className="split">
         <div style={{ display: 'grid', gap: 10 }}>
           <label>
-            <div className="muted">Name</div>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="eg Pancake Salmon" />
+            <div className="muted">Όνομα πιάτου</div>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="π.χ. Κοτόπουλο με ρύζι" />
           </label>
 
           <div className="row">
             <label>
-              <div className="muted">Servings</div>
+              <div className="muted">Μερίδες</div>
               <input value={servings} onChange={(e) => setServings(e.target.value)} />
             </label>
 
             <label>
-              <div className="muted">Price</div>
+              <div className="muted">Τιμή (€)</div>
               <input value={price} onChange={(e) => setPrice(e.target.value)} />
             </label>
           </div>
 
           <label>
-            <div className="muted">Notes</div>
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
+            <div className="muted">Σημειώσεις</div>
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Προαιρετικό" />
           </label>
 
           <div className="muted">
-            Tip: Add a recipe line for a base and then extras.
+            Συμβουλή: ξεκίνα με τη βάση (π.χ. ζύμη) και πρόσθεσε μετά τις υπόλοιπες συνταγές.
           </div>
         </div>
 
@@ -205,35 +205,35 @@ function MenuItemViewModal(props: {
   const fc = props.item.price > 0 ? costPerServing / props.item.price : 0
 
   return (
-    <Modal title={`Menu item: ${props.item.name}`} onClose={props.onClose}>
-      {errors.length ? <div className="errorBox">{errors.join(' | ')}</div> : <div className="okBox">No calculation errors</div>}
+    <Modal title={`Πιάτο: ${props.item.name}`} onClose={props.onClose}>
+      {errors.length ? <div className="errorBox">{errors.join(' | ')}</div> : <div className="okBox">Οι υπολογισμοί έγιναν κανονικά</div>}
       <div className="hr" />
       <div className="row" style={{ justifyContent: 'space-between' }}>
-        <div><div className="muted">Total cost</div><div><b>{money(totalCost)}</b></div></div>
-        <div><div className="muted">Cost per serving</div><div><b>{money(costPerServing)}</b></div></div>
-        <div><div className="muted">Price</div><div><b>{money(props.item.price)}</b></div></div>
-        <div><div className="muted">Food cost</div><div><b>{pct(fc)}%</b></div></div>
+        <div><div className="muted">Συνολικό κόστος</div><div><b>{money(totalCost)}</b></div></div>
+        <div><div className="muted">Κόστος ανά μερίδα</div><div><b>{money(costPerServing)}</b></div></div>
+        <div><div className="muted">Τιμή</div><div><b>{money(props.item.price)}</b></div></div>
+        <div><div className="muted">Κόστος τροφίμων</div><div><b>{pct(fc)}%</b></div></div>
       </div>
       <div className="hr" />
       <table>
         <thead>
           <tr>
-            <th>Component</th>
-            <th>Qty</th>
-            <th>Unit cost</th>
-            <th>Line cost</th>
+            <th>Συστατικό</th>
+            <th>Ποσότητα</th>
+            <th>Κόστος μονάδας</th>
+            <th>Κόστος γραμμής</th>
           </tr>
         </thead>
         <tbody>
           {breakdown.map((b, idx) => (
             <tr key={idx}>
-              <td>{b.label} <span className="pill">{b.kind}</span></td>
-              <td>{num(b.qty)} {b.unit}</td>
-              <td>{Number.isFinite(b.unitCost) ? `${money(b.unitCost)} per ${b.unit}` : 'N/A'}</td>
-              <td>{Number.isFinite(b.lineCost) ? money(b.lineCost) : 'N/A'}</td>
+              <td>{b.label} <span className="pill">{b.kind === 'ingredient' ? 'Υλικό' : 'Συνταγή'}</span></td>
+              <td>{num(b.qty)} {unitLabel(b.unit)}</td>
+              <td>{Number.isFinite(b.unitCost) ? `${money(b.unitCost)} ανά ${unitLabel(b.unit)}` : 'Άγνωστο'}</td>
+              <td>{Number.isFinite(b.lineCost) ? money(b.lineCost) : 'Άγνωστο'}</td>
             </tr>
           ))}
-          {breakdown.length === 0 ? <tr><td colSpan={4} className="muted">No lines.</td></tr> : null}
+          {breakdown.length === 0 ? <tr><td colSpan={4} className="muted">Δεν υπάρχουν γραμμές. Πρόσθεσε υλικά ή συνταγές.</td></tr> : null}
         </tbody>
       </table>
     </Modal>

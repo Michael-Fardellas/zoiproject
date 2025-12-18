@@ -23,8 +23,8 @@ export default function App() {
     <div className="app">
       <div className="topbar noPrint">
         <div className="brand">
-          <h1>Recipe Costing</h1>
-          <small>Ingredients, recipes, menu items. Local storage only.</small>
+          <h1>ΠΡΟΓΡΑΜΜΑ ΓΙΑ ΣΥΝΤΑΓΕΣ ΖΩΗ</h1>
+          <small>Απλές λίστες υλικών, συνταγών και πιάτων. Όλα αποθηκεύονται μόνο σε αυτή τη συσκευή.</small>
         </div>
         <FileButtons
           data={data}
@@ -34,10 +34,14 @@ export default function App() {
       </div>
 
       <div className="tabs noPrint">
-        <button className={'tab ' + (tab === 'Ingredients' ? 'active' : '')} onClick={() => setTab('Ingredients')}>Ingredients</button>
-        <button className={'tab ' + (tab === 'Recipes' ? 'active' : '')} onClick={() => setTab('Recipes')}>Recipes</button>
-        <button className={'tab ' + (tab === 'Menu' ? 'active' : '')} onClick={() => setTab('Menu')}>Menu Items</button>
-        <button className={'tab ' + (tab === 'Reports' ? 'active' : '')} onClick={() => setTab('Reports')}>Reports</button>
+        <button className={'tab ' + (tab === 'Ingredients' ? 'active' : '')} onClick={() => setTab('Ingredients')}>Υλικά</button>
+        <button className={'tab ' + (tab === 'Recipes' ? 'active' : '')} onClick={() => setTab('Recipes')}>Συνταγές</button>
+        <button className={'tab ' + (tab === 'Menu' ? 'active' : '')} onClick={() => setTab('Menu')}>Πιάτα & Μερίδες</button>
+        <button className={'tab ' + (tab === 'Reports' ? 'active' : '')} onClick={() => setTab('Reports')}>Αναφορές</button>
+      </div>
+
+      <div className="infoStrip noPrint">
+        1) Καταχώρησε τα υλικά με τιμές. 2) Σύνδεσε τα υλικά σε συνταγές. 3) Δες κόστος και προτεινόμενες τιμές για τα πιάτα σου.
       </div>
 
       {tab === 'Ingredients' ? <IngredientsTab ingredients={data.ingredients} setIngredients={setIngredients} /> : null}
@@ -46,7 +50,7 @@ export default function App() {
       {tab === 'Reports' ? <ReportsTab ingredients={data.ingredients} recipes={data.recipes} menuItems={data.menuItems} /> : null}
 
       <div className="muted" style={{ marginTop: 14 }}>
-        Units must match exactly. If you need density conversions (ml to g), that is an extra feature.
+        Χρησιμοποίησε την ίδια μονάδα μέτρησης παντού (γρ / ml / τεμ). Για μετατροπές πυκνότητας (ml σε γρ) χρειάζεται ξεχωριστός υπολογισμός.
       </div>
     </div>
   )

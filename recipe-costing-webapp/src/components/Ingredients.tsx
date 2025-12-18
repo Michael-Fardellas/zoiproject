@@ -2,7 +2,7 @@ import React from 'react'
 import type { Ingredient, Unit } from '../types'
 import { uid } from '../lib/ids'
 import { ingredientUnitCost } from '../lib/calc'
-import { money, num } from '../lib/format'
+import { money, num, unitLabel } from '../lib/format'
 import { Modal } from './Modal'
 
 const units: Unit[] = ['g', 'ml', 'pc']
@@ -37,23 +37,23 @@ export function IngredientsTab(props: {
   return (
     <div className="panel">
       <div className="row noPrint" style={{ justifyContent: 'space-between' }}>
-        <h2>Ingredients</h2>
+        <h2>Υλικά</h2>
         <div className="row">
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search ingredient or supplier" />
-          <button className="btn primary" onClick={() => setCreating(true)}>Add ingredient</button>
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Αναζήτηση υλικού ή προμηθευτή" />
+          <button className="btn primary" onClick={() => setCreating(true)}>Νέο υλικό</button>
         </div>
       </div>
 
       <table>
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Supplier</th>
-            <th>Unit</th>
-            <th>Pack size</th>
-            <th>Pack cost</th>
-            <th>Unit cost</th>
-            <th className="noPrint">Actions</th>
+            <th>Όνομα</th>
+            <th>Προμηθευτής</th>
+            <th>Μονάδα</th>
+            <th>Ποσότητα συσκ.</th>
+            <th>Κόστος συσκ.</th>
+            <th>Κόστος μονάδας</th>
+            <th className="noPrint">Ενέργειες</th>
           </tr>
         </thead>
         <tbody>
@@ -63,32 +63,32 @@ export function IngredientsTab(props: {
               <tr key={i.id}>
                 <td><b>{i.name}</b></td>
                 <td className="muted">{i.supplier ?? ''}</td>
-                <td><span className="pill">{i.unit}</span></td>
-                <td>{num(i.packSize)} {i.unit}</td>
+                <td><span className="pill">{unitLabel(i.unit)}</span></td>
+                <td>{num(i.packSize)} {unitLabel(i.unit)}</td>
                 <td>{money(i.packCost)}</td>
-                <td>{Number.isFinite(uc) ? `${money(uc)} per ${i.unit}` : 'N/A'}</td>
+                <td>{Number.isFinite(uc) ? `${money(uc)} ανά ${unitLabel(i.unit)}` : 'Άγνωστο'}</td>
                 <td className="noPrint">
                   <div className="row">
-                    <button className="btn" onClick={() => setEditing(i)}>Edit</button>
+                    <button className="btn" onClick={() => setEditing(i)}>Επεξεργασία</button>
                     <button className="btn danger" onClick={() => {
-                      const ok = confirm(`Delete ingredient "${i.name}"?`)
+                      const ok = confirm(`Διαγραφή του υλικού "${i.name}";`)
                       if (!ok) return
                       props.setIngredients(props.ingredients.filter(x => x.id !== i.id))
-                    }}>Delete</button>
+                    }}>Διαγραφή</button>
                   </div>
                 </td>
               </tr>
             )
           })}
           {sorted.length === 0 ? (
-            <tr><td colSpan={7} className="muted">No ingredients.</td></tr>
+            <tr><td colSpan={7} className="muted">Δεν υπάρχουν υλικά. Πρόσθεσε τα βασικά πρώτα (π.χ. γάλα, αλεύρι).</td></tr>
           ) : null}
         </tbody>
       </table>
 
       {(creating || editing) ? (
         <IngredientModal
-          title={editing ? 'Edit ingredient' : 'Add ingredient'}
+          title={editing ? 'Επεξεργασία υλικού' : 'Νέο υλικό'}
           initial={editing ?? null}
           onClose={() => { setCreating(false); setEditing(null) }}
           onSave={(ing) => {
@@ -116,11 +116,11 @@ function IngredientModal(props: {
   const [notes, setNotes] = React.useState(props.initial?.notes ?? '')
 
   const validate = () => {
-    if (!name.trim()) return 'Name is required'
+    if (!name.trim()) return 'Χρειάζεται όνομα'
     const ps = parseNum(packSize)
     const pc = parseNum(packCost)
-    if (ps <= 0) return 'Pack size must be > 0'
-    if (pc < 0) return 'Pack cost must be >= 0'
+    if (ps <= 0) return 'Η ποσότητα συσκευασίας πρέπει να είναι πάνω από 0'
+    if (pc < 0) return 'Το κόστος συσκευασίας πρέπει να είναι 0 ή μεγαλύτερο'
     return null
   }
 
@@ -132,7 +132,7 @@ function IngredientModal(props: {
       onClose={props.onClose}
       actions={
         <>
-          <button className="btn" onClick={props.onClose}>Cancel</button>
+          <button className="btn" onClick={props.onClose}>Άκυρο</button>
           <button
             className="btn primary"
             disabled={!!err}
@@ -150,53 +150,53 @@ function IngredientModal(props: {
               })
             }}
           >
-            Save
+            Αποθήκευση
           </button>
         </>
       }
     >
-      {err ? <div className="errorBox">{err}</div> : <div className="okBox">OK</div>}
+      {err ? <div className="errorBox">{err}</div> : <div className="okBox">Έτοιμο για αποθήκευση</div>}
       <div className="hr" />
       <div className="split">
         <div style={{ display: 'grid', gap: 10 }}>
           <label>
-            <div className="muted">Name</div>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="eg Milk" />
+            <div className="muted">Όνομα υλικού</div>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="π.χ. Γάλα" />
           </label>
 
           <label>
-            <div className="muted">Supplier</div>
-            <input value={supplier} onChange={(e) => setSupplier(e.target.value)} placeholder="Optional" />
+            <div className="muted">Προμηθευτής</div>
+            <input value={supplier} onChange={(e) => setSupplier(e.target.value)} placeholder="Προαιρετικό" />
           </label>
 
           <label>
-            <div className="muted">Unit</div>
+            <div className="muted">Μονάδα μέτρησης</div>
             <select value={unit} onChange={(e) => setUnit(e.target.value as Unit)}>
-              {units.map(u => <option key={u} value={u}>{u}</option>)}
+              {units.map(u => <option key={u} value={u}>{unitLabel(u)} ({u})</option>)}
             </select>
           </label>
 
           <div className="row">
             <label>
-              <div className="muted">Pack size</div>
+              <div className="muted">Ποσότητα συσκευασίας</div>
               <input value={packSize} onChange={(e) => setPackSize(e.target.value)} />
             </label>
 
             <label>
-              <div className="muted">Pack cost</div>
+              <div className="muted">Κόστος συσκευασίας (€)</div>
               <input value={packCost} onChange={(e) => setPackCost(e.target.value)} />
             </label>
           </div>
 
           <label>
-            <div className="muted">Notes</div>
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes" />
+            <div className="muted">Σημειώσεις</div>
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Προαιρετικές σημειώσεις" />
           </label>
         </div>
 
         <div className="muted">
-          Unit cost is computed as packCost / packSize.
-          Units must match exactly. No conversions between g and ml.
+          Το κόστος μονάδας προκύπτει από: κόστος συσκευασίας / ποσότητα συσκευασίας.
+          Κράτα την ίδια μονάδα (γρ, ml, τεμ) για να γίνονται σωστά οι υπολογισμοί.
         </div>
       </div>
     </Modal>

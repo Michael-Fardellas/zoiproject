@@ -1,6 +1,7 @@
 import React from 'react'
 import type { AppData } from '../types'
 import { exportJson, importJson } from '../lib/storage'
+import { ExcelImportModal } from './ExcelImportModal'
 
 function downloadText(filename: string, text: string) {
   const blob = new Blob([text], { type: 'application/json' })
@@ -18,6 +19,7 @@ export function FileButtons(props: {
   onReset: () => void
 }) {
   const fileRef = React.useRef<HTMLInputElement | null>(null)
+  const [excelOpen, setExcelOpen] = React.useState(false)
 
   return (
     <div className="row">
@@ -25,10 +27,10 @@ export function FileButtons(props: {
         className="btn"
         onClick={() => {
           const ts = new Date().toISOString().slice(0, 19).replace(/:/g, '-')
-          downloadText(`recipe-costing-export_${ts}.json`, exportJson(props.data))
+          downloadText(`syntages-zois_${ts}.json`, exportJson(props.data))
         }}
       >
-        Export JSON
+        Εξαγωγή JSON (αντίγραφο)
       </button>
 
       <input
@@ -44,7 +46,7 @@ export function FileButtons(props: {
             const imported = importJson(text)
             props.onImport(imported)
           } catch (err) {
-            alert((err as Error).message)
+            alert(`Δεν έγινε η εισαγωγή: ${(err as Error).message}`)
           } finally {
             if (fileRef.current) fileRef.current.value = ''
           }
@@ -52,22 +54,40 @@ export function FileButtons(props: {
       />
 
       <button className="btn" onClick={() => fileRef.current?.click()}>
-        Import JSON
+        Εισαγωγή JSON
+      </button>
+
+      <button className="btn" onClick={() => setExcelOpen(true)}>
+        Εισαγωγή Excel / Συνδέσμου
       </button>
 
       <button
         className="btn danger"
         onClick={() => {
-          const ok = confirm('This will delete all local data on this device. Continue?')
+          const ok = confirm('Θα διαγραφούν όλα τα δεδομένα από αυτή τη συσκευή. Συνέχεια;')
           if (ok) props.onReset()
         }}
       >
-        Reset data
+        Μηδενισμός δεδομένων
       </button>
 
       <button className="btn" onClick={() => window.print()}>
-        Print or Save PDF
+        Εκτύπωση ή αποθήκευση PDF
       </button>
+
+      {excelOpen ? (
+        <ExcelImportModal
+          existingCount={props.data.ingredients.length}
+          onApply={(mode, ingredients) => {
+            const nextIngredients = mode === 'append'
+              ? [...props.data.ingredients, ...ingredients]
+              : ingredients
+            props.onImport({ ...props.data, ingredients: nextIngredients, exportedAt: new Date().toISOString() })
+            setExcelOpen(false)
+          }}
+          onClose={() => setExcelOpen(false)}
+        />
+      ) : null}
     </div>
   )
 }
