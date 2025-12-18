@@ -39,7 +39,10 @@ export function MenuItemsTab(props: {
   return (
     <div className="panel">
       <div className="row noPrint" style={{ justifyContent: 'space-between' }}>
-        <h2>Πιάτα & μερίδες</h2>
+        <div style={{ display: 'grid', gap: 4 }}>
+          <h2 style={{ margin: 0 }}>Πιάτα & άμεσος υπολογισμός κόστους</h2>
+          <div className="muted">Πρόσθεσε υλικά χειροκίνητα ή από Excel, όρισε προαιρετικά τιμή πώλησης και εκτύπωσε PDF.</div>
+        </div>
         <div className="row">
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Αναζήτηση πιάτου" />
           <button className="btn primary" onClick={() => setCreating(true)}>Νέο πιάτο</button>
@@ -183,12 +186,12 @@ function MenuItemModal(props: {
           </label>
 
           <div className="muted">
-            Συμβουλή: ξεκίνα με τη βάση (π.χ. ζύμη) και πρόσθεσε μετά τις υπόλοιπες συνταγές.
+            Συμβουλή: γράψε τις ποσότητες σε γρ/ml/τεμ ώστε να συμφωνούν με το κόστος των υλικών.
           </div>
         </div>
 
         <div>
-          <LineEditor ingredients={props.ingredients} recipes={props.recipes} lines={lines} setLines={setLines} allowRecipeRefs={true} />
+          <LineEditor ingredients={props.ingredients} recipes={props.recipes} lines={lines} setLines={setLines} allowRecipeRefs={false} />
         </div>
       </div>
     </Modal>
@@ -203,6 +206,7 @@ function MenuItemViewModal(props: {
 }) {
   const { totalCost, costPerServing, breakdown, errors } = menuItemCostPerServing(props.item, props.ingredients, props.recipes)
   const fc = props.item.price > 0 ? costPerServing / props.item.price : 0
+  const totalWeightG = breakdown.filter(b => b.unit === 'g').reduce((s, b) => s + b.qty, 0)
 
   return (
     <Modal title={`Πιάτο: ${props.item.name}`} onClose={props.onClose}>
@@ -211,8 +215,9 @@ function MenuItemViewModal(props: {
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <div><div className="muted">Συνολικό κόστος</div><div><b>{money(totalCost)}</b></div></div>
         <div><div className="muted">Κόστος ανά μερίδα</div><div><b>{money(costPerServing)}</b></div></div>
-        <div><div className="muted">Τιμή</div><div><b>{money(props.item.price)}</b></div></div>
+        <div><div className="muted">Τιμή πώλησης</div><div><b>{money(props.item.price)}</b></div></div>
         <div><div className="muted">Κόστος τροφίμων</div><div><b>{pct(fc)}%</b></div></div>
+        <div><div className="muted">Συνολικά γραμμάρια</div><div><b>{num(totalWeightG)} g</b></div></div>
       </div>
       <div className="hr" />
       <table>

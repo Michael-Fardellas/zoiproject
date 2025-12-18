@@ -1,5 +1,5 @@
 import React from 'react'
-import type { Ingredient, Unit } from '../types'
+import type { Ingredient, MenuItem, RecipeLine, Unit } from '../types'
 import { Modal } from './Modal'
 import { uid } from '../lib/ids'
 import { money, num, unitLabel } from '../lib/format'
@@ -11,11 +11,22 @@ type XLSXModule = {
   }
 }
 
-type Preview = {
-  ingredients: Ingredient[]
-  warnings: string[]
-  sourceLabel: string
-}
+type ImportKind = 'ingredients' | 'dishes'
+
+type Preview =
+  | {
+    kind: 'ingredients'
+    ingredients: Ingredient[]
+    warnings: string[]
+    sourceLabel: string
+  }
+  | {
+    kind: 'dishes'
+    ingredients: Ingredient[]
+    menuItems: MenuItem[]
+    warnings: string[]
+    sourceLabel: string
+  }
 
 type Workbook = ReturnType<XLSXModule['read']>
 
@@ -44,7 +55,7 @@ function normalizeUnit(text: string): Unit {
   return 'g'
 }
 
-function parseWorkbook(workbook: Workbook, sourceLabel: string, XLSX: XLSXModule): Preview {
+function parseIngredientsWorkbook(workbook: Workbook, sourceLabel: string, XLSX: XLSXModule): Preview {
   if (!workbook.SheetNames.length) throw new Error('Δεν βρέθηκε φύλλο στο αρχείο.')
   const sheet = workbook.Sheets[workbook.SheetNames[0]]
   const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' })
@@ -82,16 +93,117 @@ function parseWorkbook(workbook: Workbook, sourceLabel: string, XLSX: XLSXModule
 
   if (!ingredients.length) throw new Error('Δεν βρέθηκαν υλικά στο φύλλο.')
 
-  return { ingredients, warnings, sourceLabel }
+  return { kind: 'ingredients', ingredients, warnings, sourceLabel }
+}
+
+function parseDishesWorkbook(workbook: Workbook, sourceLabel: string, XLSX: XLSXModule): Preview {
+  if (!workbook.SheetNames.length) throw new Error('Δεν βρέθηκε φύλλο στο αρχείο.')
+  const sheet = workbook.Sheets[workbook.SheetNames[0]]
+  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' })
+
+  const warnings: string[] = []
+  const ingredientsByName = new Map<string, Ingredient>()
+  const menus = new Map<string, MenuItem>()
+
+  const findOrCreateIngredient = (name: string, unit: Unit, unitCost: number) => {
+    const key = name.toLowerCase()
+    const existing = ingredientsByName.get(key)
+    if (existing) {
+      if (unitCost > 0 && unitCost !== existing.packCost) existing.packCost = unitCost
+      return existing
+    }
+    const ing: Ingredient = {
+      id: uid('ing'),
+      name,
+      unit,
+      packSize: unitCost > 0 ? 1 : 0,
+      packCost: unitCost > 0 ? unitCost : 0,
+      updatedAt: new Date().toISOString(),
+    }
+    ingredientsByName.set(key, ing)
+    return ing
+  }
+
+  const findOrCreateMenu = (name: string, price: number, servings: number) => {
+    const key = name.toLowerCase()
+    const existing = menus.get(key)
+    if (existing) {
+      if (price > 0) existing.price = price
+      if (servings > 0) existing.servings = servings
+      return existing
+    }
+    const menu: MenuItem = {
+      id: uid('menu'),
+      name,
+      servings: servings > 0 ? servings : 1,
+      price: price > 0 ? price : 0,
+      lines: [],
+      updatedAt: new Date().toISOString(),
+    }
+    menus.set(key, menu)
+    return menu
+  }
+
+  rows.forEach((row, idx) => {
+    const dishName = String(row['Dish'] ?? row['Πιάτο'] ?? row['Plate'] ?? row['Menu Item'] ?? '').trim()
+    const ingName = String(row['Ingredient'] ?? row['Υλικό'] ?? row['Raw Material'] ?? '').trim()
+
+    if (!dishName && !ingName) return
+    if (!dishName) {
+      warnings.push(`Γραμμή ${idx + 2}: λείπει όνομα πιάτου`)
+      return
+    }
+    if (!ingName) {
+      warnings.push(`Γραμμή ${idx + 2}: λείπει όνομα υλικού για το πιάτο ${dishName}`)
+      return
+    }
+
+    const qty = parseNumber(row['Qty'] ?? row['Quantity'] ?? row['Ποσότητα'] ?? row['Gram'] ?? row['g'] ?? row['Τεμάχια'])
+    const unit = normalizeUnit(String(row['Unit'] ?? row['Μονάδα'] ?? row['Μονάδα μέτρησης'] ?? 'g'))
+    const unitCost = parseNumber(row['Unit Cost'] ?? row['Κόστος μονάδας'] ?? row['€ ανά μονάδα'] ?? row['Cost'] ?? row['€'])
+    const price = parseNumber(row['Price'] ?? row['Selling Price'] ?? row['Τιμή πώλησης'] ?? 0)
+    const servings = parseNumber(row['Servings'] ?? row['Μερίδες'] ?? 1)
+
+    if (qty <= 0) warnings.push(`Γραμμή ${idx + 2}: η ποσότητα για ${ingName} έχει καταγραφεί ως 0`)
+    if (unitCost < 0) warnings.push(`Γραμμή ${idx + 2}: αρνητικό κόστος μονάδας για ${ingName}, ορίστηκε 0`)
+
+    const ing = findOrCreateIngredient(ingName, unit, unitCost)
+    const menu = findOrCreateMenu(dishName, price, servings)
+
+    const line: RecipeLine = {
+      id: uid('line'),
+      ref: { kind: 'ingredient', ingredientId: ing.id },
+      qty: qty > 0 ? qty : 0,
+      unit,
+    }
+    menu.lines.push(line)
+  })
+
+  const menuItems = Array.from(menus.values())
+  if (!menuItems.length) throw new Error('Δεν βρέθηκαν πιάτα στο φύλλο.')
+
+  return {
+    kind: 'dishes',
+    ingredients: Array.from(ingredientsByName.values()),
+    menuItems,
+    warnings,
+    sourceLabel,
+  }
 }
 
 export function ExcelImportModal(props: {
-  existingCount: number
-  onApply: (mode: 'append' | 'replace', ingredients: Ingredient[]) => void
+  existingIngredients: number
+  existingDishes: number
+  onApply: (result:
+    | { kind: 'ingredients'; mode: 'append' | 'replace'; ingredients: Ingredient[] }
+    | { kind: 'dishes'; menuMode: 'append' | 'replace'; ingredients: Ingredient[]; menuItems: MenuItem[] }
+  ) => void
   onClose: () => void
 }) {
   const [preview, setPreview] = React.useState<Preview | null>(null)
   const [mode, setMode] = React.useState<'append' | 'replace'>('append')
+  const [menuMode, setMenuMode] = React.useState<'append' | 'replace'>('append')
+  const [kind, setKind] = React.useState<ImportKind>('ingredients')
   const [url, setUrl] = React.useState('')
   const [error, setError] = React.useState<string | null>(null)
   const [loading, setLoading] = React.useState(false)
@@ -102,7 +214,9 @@ export function ExcelImportModal(props: {
     try {
       const XLSX = await loadXlsx()
       const workbook = XLSX.read(buffer, { type: 'array' })
-      const parsed = parseWorkbook(workbook, label, XLSX)
+      const parsed = kind === 'ingredients'
+        ? parseIngredientsWorkbook(workbook, label, XLSX)
+        : parseDishesWorkbook(workbook, label, XLSX)
       setPreview(parsed)
       setError(null)
     } catch (err) {
@@ -147,9 +261,18 @@ export function ExcelImportModal(props: {
       <button
         className="btn primary"
         disabled={!preview || loading}
-        onClick={() => preview && props.onApply(mode, preview.ingredients)}
+        onClick={() => {
+          if (!preview) return
+          if (preview.kind === 'ingredients') {
+            props.onApply({ kind: 'ingredients', mode, ingredients: preview.ingredients })
+          } else {
+            props.onApply({ kind: 'dishes', menuMode, ingredients: preview.ingredients, menuItems: preview.menuItems })
+          }
+        }}
       >
-        {mode === 'append' ? 'Προσθήκη στη λίστα' : 'Αντικατάσταση λίστας'}
+        {preview?.kind === 'ingredients'
+          ? (mode === 'append' ? 'Προσθήκη υλικών' : 'Αντικατάσταση υλικών')
+          : (menuMode === 'append' ? 'Προσθήκη πιάτων' : 'Αντικατάσταση πιάτων')}
       </button>
     </>
   )
@@ -159,8 +282,19 @@ export function ExcelImportModal(props: {
       <div className="split">
         <div style={{ display: 'grid', gap: 10 }}>
           <div className="muted">
-            Άνοιξε ένα αρχείο Excel (.xlsx) ή επικόλλησε έναν ασφαλή σύνδεσμο (όπως το παρεχόμενο SharePoint). Χρειάζεται σύνδεση στο διαδίκτυο για να διαβαστεί το αρχείο Excel.
-            Χρησιμοποιούμε το πρώτο φύλλο με στήλες: Όνομα, Μονάδα (g/ml/τεμ), Ποσότητα συσκευασίας, Κόστος συσκευασίας, Προμηθευτής (προαιρετικό).
+            Άνοιξε ένα αρχείο Excel (.xlsx) ή επικόλλησε έναν ασφαλή σύνδεσμο (SharePoint / OneDrive). Χρειάζεται σύνδεση στο διαδίκτυο για να διαβαστεί το αρχείο Excel.
+            Μπορείς να εισάγεις είτε υλικά είτε έτοιμα πιάτα.
+          </div>
+
+          <div className="row" style={{ flexWrap: 'wrap' }}>
+            <label className="pill" style={{ cursor: 'pointer', borderColor: kind === 'ingredients' ? 'var(--accent)' : 'var(--border)' }}>
+              <input type="radio" name="import-kind" checked={kind === 'ingredients'} onChange={() => { setKind('ingredients'); setPreview(null); setError(null) }} />
+              <span style={{ marginLeft: 8 }}>Υλικά (στήλες: Όνομα, Μονάδα, Ποσότητα συσκ., Κόστος συσκ.)</span>
+            </label>
+            <label className="pill" style={{ cursor: 'pointer', borderColor: kind === 'dishes' ? 'var(--accent)' : 'var(--border)' }}>
+              <input type="radio" name="import-kind" checked={kind === 'dishes'} onChange={() => { setKind('dishes'); setPreview(null); setError(null) }} />
+              <span style={{ marginLeft: 8 }}>Πιάτα (στήλες: Πιάτο, Υλικό, Ποσότητα, Μονάδα, Κόστος/μον., Τιμή πώλησης)</span>
+            </label>
           </div>
 
           <div className="row">
@@ -189,31 +323,57 @@ export function ExcelImportModal(props: {
           </label>
 
           <div className="row">
-            <label className="row" style={{ gap: 6 }}>
-              <input
-                type="radio"
-                name="excel-mode"
-                checked={mode === 'append'}
-                onChange={() => setMode('append')}
-              />
-              <span>Πρόσθεσε στα υπάρχοντα ({props.existingCount} υλικά τώρα)</span>
-            </label>
-            <label className="row" style={{ gap: 6 }}>
-              <input
-                type="radio"
-                name="excel-mode"
-                checked={mode === 'replace'}
-                onChange={() => setMode('replace')}
-              />
-              <span>Αντικατάσταση με όσα βρεθούν</span>
-            </label>
+            {kind === 'ingredients' ? (
+              <>
+                <label className="row" style={{ gap: 6 }}>
+                  <input
+                    type="radio"
+                    name="excel-mode"
+                    checked={mode === 'append'}
+                    onChange={() => setMode('append')}
+                  />
+                  <span>Πρόσθεσε στα υπάρχοντα ({props.existingIngredients} υλικά τώρα)</span>
+                </label>
+                <label className="row" style={{ gap: 6 }}>
+                  <input
+                    type="radio"
+                    name="excel-mode"
+                    checked={mode === 'replace'}
+                    onChange={() => setMode('replace')}
+                  />
+                  <span>Αντικατάσταση λίστας υλικών</span>
+                </label>
+              </>
+            ) : (
+              <>
+                <label className="row" style={{ gap: 6 }}>
+                  <input
+                    type="radio"
+                    name="excel-menu-mode"
+                    checked={menuMode === 'append'}
+                    onChange={() => setMenuMode('append')}
+                  />
+                  <span>Πρόσθεσε στα υπάρχοντα πιάτα ({props.existingDishes} τώρα)</span>
+                </label>
+                <label className="row" style={{ gap: 6 }}>
+                  <input
+                    type="radio"
+                    name="excel-menu-mode"
+                    checked={menuMode === 'replace'}
+                    onChange={() => setMenuMode('replace')}
+                  />
+                  <span>Αντικατάσταση λίστας πιάτων</span>
+                </label>
+              </>
+            )}
           </div>
 
           {error ? <div className="errorBox">{error}</div> : null}
           {preview ? (
             <div className="okBox">
-              Βρέθηκαν {preview.ingredients.length} υλικά από το {preview.sourceLabel}.
-              Μπορείς να ελέγξεις τα πρώτα 10 παρακάτω πριν την εισαγωγή.
+              {preview.kind === 'ingredients'
+                ? <>Βρέθηκαν {preview.ingredients.length} υλικά από το {preview.sourceLabel}. Μπορείς να ελέγξεις τα πρώτα 10 παρακάτω πριν την εισαγωγή.</>
+                : <>Βρέθηκαν {preview.menuItems.length} πιάτα με {preview.ingredients.length} υλικά από το {preview.sourceLabel}. Δες μια σύνοψη στα δεξιά.</>}
             </div>
           ) : (
             <div className="muted">Περίμενε επιβεβαίωση πριν κάνεις εισαγωγή. Τα δεδομένα αποθηκεύονται μόνο στη συσκευή σου.</div>
@@ -231,31 +391,57 @@ export function ExcelImportModal(props: {
             <h3 style={{ margin: 0, fontSize: 15 }}>Γρήγορη προεπισκόπηση</h3>
             <span className="muted">Δείχνουμε έως 10 γραμμές</span>
           </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Όνομα</th>
-                <th>Μονάδα</th>
-                <th>Ποσότητα συσκ.</th>
-                <th>Κόστος συσκ.</th>
-                <th>Προμηθευτής</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(preview?.ingredients.slice(0, 10) ?? []).map((ing, idx) => (
-                <tr key={ing.id + idx}>
-                  <td><b>{ing.name}</b></td>
-                  <td><span className="pill">{unitLabel(ing.unit)}</span></td>
-                  <td>{num(ing.packSize)} {unitLabel(ing.unit)}</td>
-                  <td>{money(ing.packCost)}</td>
-                  <td className="muted">{ing.supplier ?? '-'}</td>
+          {(!preview || preview.kind === 'ingredients') ? (
+            <table>
+              <thead>
+                <tr>
+                  <th>Όνομα</th>
+                  <th>Μονάδα</th>
+                  <th>Ποσότητα συσκ.</th>
+                  <th>Κόστος συσκ.</th>
+                  <th>Προμηθευτής</th>
                 </tr>
-              ))}
-              {!(preview?.ingredients.length) ? (
-                <tr><td colSpan={5} className="muted">Πρόσθεσε αρχείο για να δεις προεπισκόπηση.</td></tr>
-              ) : null}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {(preview?.kind === 'ingredients' ? preview.ingredients.slice(0, 10) : []).map((ing, idx) => (
+                  <tr key={ing.id + idx}>
+                    <td><b>{ing.name}</b></td>
+                    <td><span className="pill">{unitLabel(ing.unit)}</span></td>
+                    <td>{num(ing.packSize)} {unitLabel(ing.unit)}</td>
+                    <td>{money(ing.packCost)}</td>
+                    <td className="muted">{ing.supplier ?? '-'}</td>
+                  </tr>
+                ))}
+                {(!preview || preview.kind === 'ingredients') && !(preview?.ingredients.length) ? (
+                  <tr><td colSpan={5} className="muted">Πρόσθεσε αρχείο για να δεις προεπισκόπηση.</td></tr>
+                ) : null}
+              </tbody>
+            </table>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Πιάτο</th>
+                  <th>Γραμμές υλικών</th>
+                  <th>Τιμή πώλησης</th>
+                  <th>Μερίδες</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(preview?.kind === 'dishes' ? preview.menuItems.slice(0, 10) : []).map((m, idx) => (
+                  <tr key={m.id + idx}>
+                    <td><b>{m.name}</b></td>
+                    <td><span className="pill">{m.lines.length} υλικά</span></td>
+                    <td>{money(m.price)}</td>
+                    <td>{num(m.servings)}</td>
+                  </tr>
+                ))}
+                {preview?.kind === 'dishes' && !(preview.menuItems.length) ? (
+                  <tr><td colSpan={4} className="muted">Πρόσθεσε αρχείο για να δεις προεπισκόπηση.</td></tr>
+                ) : null}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </Modal>

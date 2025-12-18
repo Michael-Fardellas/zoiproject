@@ -1,64 +1,90 @@
 import React from 'react'
-import type { AppData } from '../types'
-import { exportJson, importJson } from '../lib/storage'
+import type { AppData, Ingredient, MenuItem } from '../types'
 import { ExcelImportModal } from './ExcelImportModal'
-
-function downloadText(filename: string, text: string) {
-  const blob = new Blob([text], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
-}
+import { uid } from '../lib/ids'
 
 export function FileButtons(props: {
   data: AppData
   onImport: (data: AppData) => void
   onReset: () => void
 }) {
-  const fileRef = React.useRef<HTMLInputElement | null>(null)
   const [excelOpen, setExcelOpen] = React.useState(false)
+
+  const downloadTemplate = () => {
+    const csv = [
+      ['Πιάτο', 'Υλικό', 'Ποσότητα', 'Μονάδα', 'Κόστος/μονάδα', 'Τιμή πώλησης', 'Μερίδες'].join(','),
+      ['Παράδειγμα Σαλάτας', 'Ντομάτα', '120', 'g', '0.004', '7.5', '1'].join(','),
+      ['Παράδειγμα Σαλάτας', 'Ελαιόλαδο', '12', 'ml', '0.01', '', ''].join(','),
+    ].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'piata_template.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const mergeIngredients = (existing: Ingredient[], incoming: Ingredient[]) => {
+    const byName = new Map(existing.map(i => [i.name.toLowerCase(), i]))
+    const merged: Ingredient[] = [...existing]
+    const idMap = new Map<string, string>()
+
+    incoming.forEach((ing) => {
+      const key = ing.name.toLowerCase()
+      const found = byName.get(key)
+      if (found) {
+        const updated: Ingredient = {
+          ...found,
+          unit: ing.unit || found.unit,
+          packSize: ing.packSize > 0 ? ing.packSize : found.packSize,
+          packCost: ing.packCost >= 0 ? ing.packCost : found.packCost,
+          updatedAt: new Date().toISOString(),
+        }
+        const idx = merged.findIndex(i => i.id === found.id)
+        merged[idx] = updated
+        byName.set(key, updated)
+        idMap.set(ing.id, updated.id)
+      } else {
+        const next: Ingredient = { ...ing, id: uid('ing'), updatedAt: new Date().toISOString() }
+        merged.push(next)
+        byName.set(key, next)
+        idMap.set(ing.id, next.id)
+      }
+    })
+
+    return { ingredients: merged, idMap }
+  }
+
+  const mergeMenuItems = (existing: MenuItem[], incoming: MenuItem[], menuMode: 'append' | 'replace') => {
+    const base = menuMode === 'append' ? [...existing] : []
+    const byName = new Map(base.map(m => [m.name.toLowerCase(), m]))
+    const result = [...base]
+
+    incoming.forEach(m => {
+      const key = m.name.toLowerCase()
+      const normalized: MenuItem = { ...m, updatedAt: new Date().toISOString() }
+      const found = byName.get(key)
+      if (found) {
+        const idx = result.findIndex(x => x.id === found.id)
+        result[idx] = { ...normalized, id: found.id }
+      } else {
+        result.push({ ...normalized, id: uid('menu') })
+      }
+      byName.set(key, normalized)
+    })
+
+    return result
+  }
 
   return (
     <div className="row">
-      <button
-        className="btn"
-        onClick={() => {
-          const ts = new Date().toISOString().slice(0, 19).replace(/:/g, '-')
-          downloadText(`syntages-zois_${ts}.json`, exportJson(props.data))
-        }}
-      >
-        Εξαγωγή JSON (αντίγραφο)
-      </button>
-
-      <input
-        ref={fileRef}
-        type="file"
-        accept="application/json"
-        style={{ display: 'none' }}
-        onChange={async (e) => {
-          const file = e.target.files?.[0]
-          if (!file) return
-          const text = await file.text()
-          try {
-            const imported = importJson(text)
-            props.onImport(imported)
-          } catch (err) {
-            alert(`Δεν έγινε η εισαγωγή: ${(err as Error).message}`)
-          } finally {
-            if (fileRef.current) fileRef.current.value = ''
-          }
-        }}
-      />
-
-      <button className="btn" onClick={() => fileRef.current?.click()}>
-        Εισαγωγή JSON
-      </button>
-
-      <button className="btn" onClick={() => setExcelOpen(true)}>
+      <button className="btn primary" onClick={() => setExcelOpen(true)}>
         Εισαγωγή Excel / Συνδέσμου
+      </button>
+
+      <button className="btn" onClick={downloadTemplate}>
+        Κατέβασε πρότυπο Excel/CSV
       </button>
 
       <button
@@ -77,12 +103,30 @@ export function FileButtons(props: {
 
       {excelOpen ? (
         <ExcelImportModal
-          existingCount={props.data.ingredients.length}
-          onApply={(mode, ingredients) => {
-            const nextIngredients = mode === 'append'
-              ? [...props.data.ingredients, ...ingredients]
-              : ingredients
-            props.onImport({ ...props.data, ingredients: nextIngredients, exportedAt: new Date().toISOString() })
+          existingIngredients={props.data.ingredients.length}
+          existingDishes={props.data.menuItems.length}
+          onApply={(result) => {
+            if (result.kind === 'ingredients') {
+              const nextIngredients = result.mode === 'replace' ? result.ingredients : mergeIngredients(props.data.ingredients, result.ingredients).ingredients
+              props.onImport({ ...props.data, ingredients: nextIngredients, exportedAt: new Date().toISOString() })
+            } else {
+              const baseIngredients = result.menuMode === 'replace' ? [] : props.data.ingredients
+              const mergedIngs = mergeIngredients(baseIngredients, result.ingredients)
+              const remappedMenuItems = result.menuItems.map(m => ({
+                ...m,
+                lines: m.lines.map(l => ({
+                  ...l,
+                  ref: { kind: 'ingredient', ingredientId: mergedIngs.idMap.get(l.ref.ingredientId) ?? l.ref.ingredientId },
+                })),
+              }))
+              const nextMenuItems = mergeMenuItems(props.data.menuItems, remappedMenuItems, result.menuMode)
+              props.onImport({
+                ...props.data,
+                ingredients: mergedIngs.ingredients,
+                menuItems: nextMenuItems,
+                exportedAt: new Date().toISOString(),
+              })
+            }
             setExcelOpen(false)
           }}
           onClose={() => setExcelOpen(false)}

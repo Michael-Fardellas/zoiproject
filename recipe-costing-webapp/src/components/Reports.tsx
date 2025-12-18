@@ -42,29 +42,31 @@ export function ReportsTab(props: {
         </tbody>
       </table>
 
-      <div className="hr" />
-
-      <h2>Σύνοψη συνταγών</h2>
-      <table>
-        <thead>
-          <tr><th>Όνομα</th><th>Απόδοση</th><th>Συνολικό κόστος</th><th>Κόστος μονάδας</th></tr>
-        </thead>
-        <tbody>
-          {[...props.recipes].sort((a,b) => a.name.localeCompare(b.name)).map(r => {
-            const { totalCost } = recipeTotalCost(r, props.ingredients, props.recipes)
-            const unitCost = r.yieldQty > 0 ? totalCost / r.yieldQty : 0
-            return (
-              <tr key={r.id}>
-                <td><b>{r.name}</b></td>
-                <td>{num(r.yieldQty)} {unitLabel(r.yieldUnit)}</td>
-                <td>{money(totalCost)}</td>
-                <td>{money(unitCost)} ανά {unitLabel(r.yieldUnit)}</td>
-              </tr>
-            )
-          })}
-          {props.recipes.length === 0 ? <tr><td colSpan={4} className="muted">Δεν υπάρχουν συνταγές.</td></tr> : null}
-        </tbody>
-      </table>
+      {props.recipes.length ? (
+        <>
+          <div className="hr" />
+          <h2>Σύνοψη συνταγών</h2>
+          <table>
+            <thead>
+              <tr><th>Όνομα</th><th>Απόδοση</th><th>Συνολικό κόστος</th><th>Κόστος μονάδας</th></tr>
+            </thead>
+            <tbody>
+              {[...props.recipes].sort((a,b) => a.name.localeCompare(b.name)).map(r => {
+                const { totalCost } = recipeTotalCost(r, props.ingredients, props.recipes)
+                const unitCost = r.yieldQty > 0 ? totalCost / r.yieldQty : 0
+                return (
+                  <tr key={r.id}>
+                    <td><b>{r.name}</b></td>
+                    <td>{num(r.yieldQty)} {unitLabel(r.yieldUnit)}</td>
+                    <td>{money(totalCost)}</td>
+                    <td>{money(unitCost)} ανά {unitLabel(r.yieldUnit)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </>
+      ) : null}
 
       <div className="hr" />
 
