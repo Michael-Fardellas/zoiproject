@@ -1,13 +1,20 @@
 # Recipe Costing Web App
 
 A simple web app for costing recipes and menu items.
-Data is stored in the browser (localStorage). Use Export/Import JSON for backups or moving data.
+Data is stored in the browser (localStorage). Φόρτωσε ή επικόλλησε Excel (xlsx/csv) για υλικά ή έτοιμα πιάτα και εκτύπωσε PDF για τους υπολογισμούς.
 
 ## Run locally
 1. Install Node.js 18+
 2. In this folder:
    - npm install
    - npm run dev
+
+## Excel import
+- Χρησιμοποίησε το κουμπί "Κατέβασε πρότυπο Excel/CSV" για να δεις τη μορφή.
+- Υποστηρίζονται δύο τύποι:
+  - Υλικά: στήλες Όνομα, Μονάδα (g/ml/τεμ), Ποσότητα συσκευασίας, Κόστος συσκευασίας.
+  - Πιάτα: στήλες Πιάτο, Υλικό, Ποσότητα, Μονάδα, Κόστος/μονάδα, Τιμή πώλησης (προαιρετική), Μερίδες (προαιρετικό).
+  - Τα πιάτα δημιουργούνται με γραμμές υλικών, υπολογίζονται συνολικό κόστος και κόστος ανά μερίδα και μπορούν να σταλούν για εκτύπωση PDF.
 
 ## Build
 - npm run build
@@ -27,4 +34,4 @@ Option B (Git)
 
 ## Notes
 - No server and no login.
-- Data is per browser/device unless you export/import JSON.
+- Τα δεδομένα αποθηκεύονται ανά συσκευή/φυλλομετρητή. Κράτα offline backup με το Excel ή PDF.
